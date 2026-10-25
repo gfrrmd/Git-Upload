@@ -1,6 +1,6 @@
 const $=s=>document.querySelector(s),enc=s=>s.split('/').map(encodeURIComponent).join('/');
 const S={t:sessionStorage.getItem('gt')||'',repo:'',br:'',path:''};
-const D=$('#dock'),bar=D.querySelector('.bar i');let tm;
+const D=$('#dock'),bar=D.querySelector('.pb i');let tm;
 const hide=()=>{clearTimeout(tm);D.classList.remove('show')};
 function dock(s,t,sub='',pct=null){
   clearTimeout(tm);D.dataset.s=s;D.classList.add('show');$('#dkT').textContent=t;$('#dkS').textContent=sub;
@@ -94,7 +94,22 @@ function makeZip(files){
   return new Blob([...parts,...cen,end],{type:'application/zip'});
 }
 const mk=(t,c,f)=>{const x=document.createElement('button');x.className=c;x.textContent=t;x.onclick=act(f);return x};
-const tgt=()=>{$('#target').textContent=S.repo?`Tujuan: ${S.repo}, branch ${S.br}, folder /${$('#dest').value.trim().replace(/^\/+/,'')}`:'Pilih repositori terlebih dahulu.'};
+const syncPick=()=>{const r=$('#repo'),b=$('#branch');
+  $('#repoV').textContent=r.value||'Pilih repositori';$('#brV').textContent=b.value||'-';$('#brBtn').disabled=!r.value};
+function openPick(sel,title){
+  const sh=$('#sheet'),ul=$('#shL'),q=$('#shQ'),opts=[...sel.options].filter(o=>o.value);
+  const close=()=>{sh.classList.remove('open');document.body.style.overflow='';setTimeout(()=>sh.hidden=true,300)};
+  const draw=f=>{ul.replaceChildren();opts.filter(o=>o.text.toLowerCase().includes(f.trim().toLowerCase())).forEach((o,i)=>{
+    const li=document.createElement('li'),b=document.createElement('button');b.type='button';
+    b.className=o.value===sel.value?'sel':'';b.textContent=o.text;li.style.setProperty('--i',Math.min(i,10));
+    b.onclick=()=>{close();if(sel.value!==o.value){sel.value=o.value;sel.dispatchEvent(new Event('change'))}};li.append(b);ul.append(li)});
+    if(!ul.children.length){const li=document.createElement('li');li.className='none';li.textContent='Tidak ada hasil';ul.append(li)}};
+  $('#shT').textContent=title;q.hidden=opts.length<=8;q.value='';q.oninput=()=>draw(q.value);draw('');
+  $('.shd').onclick=close;document.body.style.overflow='hidden';sh.hidden=false;void sh.offsetWidth;sh.classList.add('open');
+  setTimeout(()=>ul.querySelector('.sel')?.scrollIntoView({block:'center'}),60);
+}
+document.addEventListener('keydown',e=>e.key==='Escape'&&$('#sheet').classList.contains('open')&&$('.shd').click());
+const tgt=()=>{syncPick();$('#target').textContent=S.repo?`Tujuan: ${S.repo}, branch ${S.br}, folder /${$('#dest').value.trim().replace(/^\/+/,'')}`:'Pilih repositori terlebih dahulu.'};
 async function list(p=''){
   need();S.path=p;
   const d=await J(`/repos/${S.repo}/contents${p?'/'+enc(p):''}?ref=${encodeURIComponent(S.br)}`);
@@ -142,7 +157,7 @@ async function connect(){
   sessionStorage.setItem('gt',S.t);$('#token').value='';
   $('#login').textContent=me.login;$('#avatar').src=me.avatar_url;
   S.all=[];for(let p=1;p<=5;p++){const r=await J(`/user/repos?per_page=100&sort=updated&page=${p}`);S.all.push(...r);if(r.length<100)break}
-  $('#rq').hidden=S.all.length<=12;$('#intro').hidden=true;$('#app').hidden=false;$('#who').hidden=false;
+  $('#intro').hidden=true;$('#app').hidden=false;$('#who').hidden=false;
   const saved=sessionStorage.getItem('gr')||'';S.repo=S.all.some(r=>r.full_name===saved)?saved:'';
   fillRepos('');if(S.repo)await pickRepo(S.repo);else{tgt();say('Terhubung. Pilih repositori untuk mulai.')}
 }
@@ -150,9 +165,9 @@ async function connect(){
 $('#connectBtn').onclick=act(connect,'#connectBtn','Menghubungkan ke GitHub');
 $('#token').onkeydown=e=>e.key==='Enter'&&act(connect)();
 $('#out').onclick=()=>{sessionStorage.clear();location.reload()};
-$('#rq').oninput=()=>fillRepos($('#rq').value);
 $('#repo').onchange=act(()=>pickRepo($('#repo').value),null,'Memuat repositori');
 $('#branch').onchange=act(()=>{S.br=$('#branch').value;tgt();return list('')});
+$('#repoBtn').onclick=()=>openPick($('#repo'),'Pilih repositori');$('#brBtn').onclick=()=>openPick($('#branch'),'Pilih branch');
 $('#dest').oninput=tgt;$('#refresh').onclick=act(()=>list(S.path),'#refresh');
 const tabs=document.querySelectorAll('[data-tab]'),panels=document.querySelectorAll('[data-p]');
 tabs.forEach(b=>b.onclick=()=>{tabs.forEach(x=>x.classList.toggle('on',x===b));panels.forEach(p=>p.hidden=p.dataset.p!==b.dataset.tab);scrollTo({top:0})});
@@ -183,7 +198,7 @@ $('#go').onclick=act(async()=>{
   const files=[];
   for(const f of fi.files){
     step('Membaca file',f.name);const buf=await f.arrayBuffer();
-    if($('#mode').value==='extract'&&/\.zip$/i.test(f.name))(await unzip(buf)).forEach(([n,d])=>files.push([dir?dir+'/'+n:n,d]));
+    if(document.querySelector('[name=mode]:checked').value==='extract'&&/\.zip$/i.test(f.name))(await unzip(buf)).forEach(([n,d])=>files.push([dir?dir+'/'+n:n,d]));
     else{const n=clean(f.name);if(n)files.push([dir?dir+'/'+n:n,new Uint8Array(buf)])}
   }
   if(!files.length)throw Error('Tidak ada file yang bisa diunggah.');
@@ -194,8 +209,8 @@ $('#go').onclick=act(async()=>{
 },'#go');
 $('#nrBtn').onclick=act(async()=>{
   const name=$('#nrName').value.trim();if(!/^[\w.-]+$/.test(name))throw Error('Nama repositori hanya boleh huruf, angka, strip, garis bawah, dan titik.');
-  const r=await send('/user/repos',{name,private:$('#nrVis').value==='1',auto_init:true});
-  S.all.unshift(r);$('#rq').value='';fillRepos('');$('#nrName').value='';await pickRepo(r.full_name);$('#repo').value=r.full_name;say(`Repositori ${r.full_name} dibuat.`);
+  const r=await send('/user/repos',{name,private:document.querySelector('[name=vis]:checked').value==='1',auto_init:true});
+  S.all.unshift(r);fillRepos('');$('#nrName').value='';await pickRepo(r.full_name);$('#repo').value=r.full_name;say(`Repositori ${r.full_name} dibuat.`);
 },'#nrBtn');
 $('#nbBtn').onclick=act(async()=>{
   need();const name=$('#nbName').value.trim();if(!name)throw Error('Masukkan nama branch baru.');
