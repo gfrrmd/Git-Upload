@@ -109,7 +109,7 @@ async function connect(){
   sessionStorage.setItem('gt',S.t);$('#token').value='';
   $('#login').textContent=me.login;$('#avatar').src=me.avatar_url;
   S.all=[];for(let p=1;p<=5;p++){const r=await J(`/user/repos?per_page=100&sort=updated&page=${p}`);S.all.push(...r);if(r.length<100)break}
-  $('#intro').hidden=true;$('#app').hidden=false;$('#who').hidden=false;
+  $('#rq').hidden=S.all.length<=12;$('#intro').hidden=true;$('#app').hidden=false;$('#who').hidden=false;
   const saved=sessionStorage.getItem('gr')||'';S.repo=S.all.some(r=>r.full_name===saved)?saved:'';
   fillRepos('');if(S.repo)await pickRepo(S.repo);else{tgt();say('Terhubung. Pilih repositori untuk mulai.')}
 }

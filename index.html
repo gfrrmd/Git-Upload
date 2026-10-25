@@ -39,11 +39,11 @@
 
 <section id="app" hidden>
   <div class="card pick">
-    <label>Repositori<input id="rq" placeholder="Cari repositori" autocomplete="off"><select id="repo"></select></label>
+    <label>Repositori<input id="rq" placeholder="Cari repositori" autocomplete="off" hidden><select id="repo"></select></label>
     <label>Branch<select id="branch"></select></label>
   </div>
   <nav class="tabs" aria-label="Menu">
-    <button data-tab="up" class="on">Unggah</button><button data-tab="files">Berkas</button><button data-tab="new">Buat</button><button data-tab="dl">Unduh</button>
+    <button data-tab="up" class="on"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4m0 0L8 8m4-4 4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg><span>Unggah</span></button><button data-tab="files"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Berkas</span></button><button data-tab="new"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Buat</span></button><button data-tab="dl"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12m0 0-4-4m4 4 4-4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg><span>Unduh</span></button>
   </nav>
 
   <div data-p="up" class="card">
