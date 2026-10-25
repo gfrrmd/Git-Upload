@@ -1,14 +1,29 @@
 const $=s=>document.querySelector(s),enc=s=>s.split('/').map(encodeURIComponent).join('/');
 const S={t:sessionStorage.getItem('gt')||'',repo:'',br:'',path:''};
-let tm;
-const say=(t,e)=>{const m=$('#msg');clearTimeout(tm);if(!t){m.classList.remove('show');return}
-  m.textContent=t;m.className='show'+(e?' err':'');
-  if(!/^(Mengunggah|Menyiapkan)/.test(t))tm=setTimeout(()=>m.classList.remove('show'),e?9000:5000)};
-const P=$('#prog'),pi=P.firstElementChild;
-const prog={ind(){P.className='on ind';pi.style.width=''},set(f){P.className='on';pi.style.width=Math.round(f*100)+'%'},
-  end(){if(!P.classList.contains('ind'))pi.style.width='100%';setTimeout(()=>{P.className='';pi.style.width='0'},450)}};
-const act=(f,b)=>async(...a)=>{const el=b&&$(b);el&&el.classList.add('busy');prog.ind();
-  try{await f(...a)}catch(e){say(e.message,1)}finally{el&&el.classList.remove('busy');prog.end()}};
+const D=$('#dock'),bar=D.querySelector('.bar i');let tm;
+const hide=()=>{clearTimeout(tm);D.classList.remove('show')};
+function dock(s,t,sub='',pct=null){
+  clearTimeout(tm);D.dataset.s=s;D.classList.add('show');$('#dkT').textContent=t;$('#dkS').textContent=sub;
+  $('#dkP').textContent=pct==null||s!=='busy'?'':Math.round(pct*100)+'%';
+  D.classList.toggle('ind',s==='busy'&&pct==null);
+  if(s==='busy'){bar.style.transition='width .3s ease';bar.style.width=pct==null?'':Math.round(pct*100)+'%'}
+  else{const ms=s==='err'?9000:5000;bar.style.transition='none';bar.style.width='100%';void bar.offsetWidth;
+    bar.style.transition=`width ${ms}ms linear`;bar.style.width='0%';tm=setTimeout(hide,ms)}
+}
+const say=(t,e)=>{if(!t)return hide();
+  const m=e&&/failed to fetch|networkerror|load failed/i.test(t)?'Gagal terhubung ke GitHub. Periksa koneksi internet kamu.':t;
+  dock(e?'err':'ok',e?'Terjadi masalah':'Berhasil',m)};
+const step=(t,sub,pct)=>dock('busy',t,sub,pct);
+D.onclick=()=>D.dataset.s!=='busy'&&hide();
+const act=(f,b,label)=>async(...a)=>{
+  const el=b&&$(b);el&&el.classList.add('busy');
+  const w=setTimeout(()=>{if(D.dataset.s!=='busy'||!D.classList.contains('show'))step(label||'Memproses')},200);
+  try{await f(...a)}catch(e){say(e.message,1)}
+  finally{clearTimeout(w);el&&el.classList.remove('busy');if(D.dataset.s==='busy')hide()}};
+document.addEventListener('pointerdown',e=>{const b=e.target.closest('.btn,.tabs button,.tx,.lk');if(!b)return;
+  const r=b.getBoundingClientRect(),s=document.createElement('span'),d=Math.max(r.width,r.height)*2;
+  s.className='rip';s.style.cssText=`width:${d}px;height:${d}px;left:${e.clientX-r.left-d/2}px;top:${e.clientY-r.top-d/2}px`;
+  b.append(s);setTimeout(()=>s.remove(),600)});
 async function api(p,o={},accept){
   const r=await fetch(p.startsWith('http')?p:'https://api.github.com'+p,{...o,headers:{Authorization:'Bearer '+S.t,Accept:accept||'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
   if(!r.ok){let m=r.statusText;try{m=(await r.json()).message}catch{}throw Error(r.status+': '+m)}
@@ -17,7 +32,7 @@ async function api(p,o={},accept){
 const J=(p,o)=>api(p,o).then(r=>r.json());
 const send=(p,b,method='POST')=>J(p,{method,body:JSON.stringify(b)});
 const b64=d=>new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result.split(',')[1]);f.readAsDataURL(new Blob([d]))});
-const save=(blob,name)=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4e4)};
+const save=(blob,name)=>{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.hidden=true;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4e4)};
 
 function clean(p){
   const x=p.replace(/\\/g,'/').split('/').filter(s=>s&&s!=='.');
@@ -56,10 +71,28 @@ async function commitFiles(files,message){
   const h=await head(),base=(await J(`/repos/${S.repo}/git/commits/${h}`)).tree.sha,tree=[];let i=0,done=0;
   await Promise.all(Array.from({length:4},async()=>{while(i<files.length){
     const [path,d]=files[i++],b=await send(`/repos/${S.repo}/git/blobs`,{content:await b64(d),encoding:'base64'});
-    tree.push({path,mode:'100644',type:'blob',sha:b.sha});say(`Mengunggah ${++done} dari ${files.length} file...`);prog.set(.9*done/files.length)}}));
+    tree.push({path,mode:'100644',type:'blob',sha:b.sha});step('Mengunggah file',`${++done} dari ${files.length} file`,.05+.85*done/files.length)}}));
+  step('Membuat commit','',.95);
   return commitTree(tree,message,h,base);
 }
 
+const crcT=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32=d=>{let c=-1;for(let i=0;i<d.length;i++)c=crcT[(c^d[i])&255]^(c>>>8);return(c^-1)>>>0};
+function makeZip(files){
+  const te=new TextEncoder(),parts=[],cen=[];let off=0;
+  for(const [n,d] of files){
+    const nb=te.encode(n),c=crc32(d),h=new DataView(new ArrayBuffer(30)),e=new DataView(new ArrayBuffer(46));
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(12,0x21,true);
+    h.setUint32(14,c,true);h.setUint32(18,d.length,true);h.setUint32(22,d.length,true);h.setUint16(26,nb.length,true);
+    e.setUint32(0,0x02014b50,true);e.setUint16(4,20,true);e.setUint16(6,20,true);e.setUint16(8,0x0800,true);e.setUint16(14,0x21,true);
+    e.setUint32(16,c,true);e.setUint32(20,d.length,true);e.setUint32(24,d.length,true);e.setUint16(28,nb.length,true);e.setUint32(42,off,true);
+    parts.push(h,nb,d);cen.push(e,nb);off+=30+nb.length+d.length;
+  }
+  const end=new DataView(new ArrayBuffer(22));
+  end.setUint32(0,0x06054b50,true);end.setUint16(8,files.length,true);end.setUint16(10,files.length,true);
+  end.setUint32(12,cen.reduce((s,x)=>s+x.byteLength,0),true);end.setUint32(16,off,true);
+  return new Blob([...parts,...cen,end],{type:'application/zip'});
+}
 const mk=(t,c,f)=>{const x=document.createElement('button');x.className=c;x.textContent=t;x.onclick=act(f);return x};
 const tgt=()=>{$('#target').textContent=S.repo?`Tujuan: ${S.repo}, branch ${S.br}, folder /${$('#dest').value.trim().replace(/^\/+/,'')}`:'Pilih repositori terlebih dahulu.'};
 async function list(p=''){
@@ -88,7 +121,7 @@ async function del(path,type){
   const t=await J(`/repos/${S.repo}/git/trees/${base}?recursive=1`);
   const e=t.tree.filter(x=>x.type==='blob'&&(x.path===path||x.path.startsWith(path+'/'))).map(x=>({path:x.path,mode:'100644',type:'blob',sha:null}));
   if(!e.length)throw Error('Tidak ditemukan: '+path);
-  await commitTree(e,`Delete ${path} via Git-Upload`,h,base);say(`Terhapus: ${path}`);
+  step('Menghapus',path,.6);await commitTree(e,`Delete ${path} via Git-Upload`,h,base);say(`Terhapus: ${path}`);
   await list(S.path.startsWith(path)?path.split('/').slice(0,-1).join('/'):S.path);
 }
 async function loadBranches(select){
@@ -114,19 +147,32 @@ async function connect(){
   fillRepos('');if(S.repo)await pickRepo(S.repo);else{tgt();say('Terhubung. Pilih repositori untuk mulai.')}
 }
 
-$('#connectBtn').onclick=act(connect,'#connectBtn');
+$('#connectBtn').onclick=act(connect,'#connectBtn','Menghubungkan ke GitHub');
 $('#token').onkeydown=e=>e.key==='Enter'&&act(connect)();
 $('#out').onclick=()=>{sessionStorage.clear();location.reload()};
 $('#rq').oninput=()=>fillRepos($('#rq').value);
-$('#repo').onchange=act(()=>pickRepo($('#repo').value));
+$('#repo').onchange=act(()=>pickRepo($('#repo').value),null,'Memuat repositori');
 $('#branch').onchange=act(()=>{S.br=$('#branch').value;tgt();return list('')});
 $('#dest').oninput=tgt;$('#refresh').onclick=act(()=>list(S.path),'#refresh');
 const tabs=document.querySelectorAll('[data-tab]'),panels=document.querySelectorAll('[data-p]');
 tabs.forEach(b=>b.onclick=()=>{tabs.forEach(x=>x.classList.toggle('on',x===b));panels.forEach(p=>p.hidden=p.dataset.p!==b.dataset.tab);scrollTo({top:0})});
-$('#zipBtn').onclick=act(async()=>{need();say('Menyiapkan unduhan...');
-  const r=await api(`/repos/${S.repo}/zipball/${enc(S.br)}`);save(await r.blob(),`${S.repo.split('/')[1]}-${S.br.replace(/\//g,'-')}.zip`);say('Repositori terunduh.')},'#zipBtn');
+$('#zipBtn').onclick=act(async()=>{
+  need();step('Menyiapkan unduhan','Membaca isi repositori');
+  const h=await head(),c=await J(`/repos/${S.repo}/git/commits/${h}`),t=await J(`/repos/${S.repo}/git/trees/${c.tree.sha}?recursive=1`);
+  if(t.truncated)throw Error('Repositori terlalu besar untuk diunduh lewat browser.');
+  const items=t.tree.filter(x=>x.type==='blob');
+  if(!items.length)throw Error('Repositori ini belum berisi file.');
+  if(items.length>2000||items.reduce((s,x)=>s+(x.size||0),0)>300*1048576)throw Error('Repositori terlalu besar (maksimal 2000 file atau 300 MB).');
+  const root=`${S.repo.split('/')[1]}-${S.br.replace(/\//g,'-')}`,files=[];let i=0,done=0;
+  await Promise.all(Array.from({length:6},async()=>{while(i<items.length){
+    const x=items[i++],r=await api(`/repos/${S.repo}/git/blobs/${x.sha}`,{},'application/vnd.github.raw+json');
+    files.push([`${root}/${x.path}`,new Uint8Array(await r.arrayBuffer())]);
+    step('Mengunduh repositori',`${++done} dari ${items.length} file`,.9*done/items.length)}}));
+  step('Menyusun file zip','',.95);
+  save(makeZip(files),root+'.zip');say(`Repositori terunduh (${files.length} file).`);
+},'#zipBtn','Menyiapkan unduhan');
 $('#fBtn').onclick=act(async()=>{need();const p=clean($('#fpath').value);if(!p)throw Error('Masukkan path file, contoh: src/index.js');await dl(p)},'#fBtn');
-const fi=$('#files'),dz=$('#drop'),show=()=>$('#dropText').textContent=fi.files.length?[...fi.files].map(f=>f.name).join(', '):'Seret file ke sini atau ketuk untuk memilih';
+const fi=$('#files'),dz=$('#drop'),show=()=>{const n=fi.files.length;$('#dropText').textContent=n?`${n} file dipilih: ${[...fi.files].map(f=>f.name).join(', ')}`:'Seret file ke sini atau ketuk untuk memilih';dz.classList.toggle('has',n>0);dz.classList.remove('pop');void dz.offsetWidth;if(n)dz.classList.add('pop')};
 dz.onkeydown=e=>(e.key==='Enter'||e.key===' ')&&(e.preventDefault(),fi.click());
 fi.onchange=show;
 dz.ondragover=e=>{e.preventDefault();dz.classList.add('on')};dz.ondragleave=()=>dz.classList.remove('on');
@@ -136,7 +182,7 @@ $('#go').onclick=act(async()=>{
   const raw=$('#dest').value.trim(),dir=raw?clean(raw):'';if(raw&&!dir)throw Error('Folder tujuan tidak valid.');
   const files=[];
   for(const f of fi.files){
-    const buf=await f.arrayBuffer();
+    step('Membaca file',f.name);const buf=await f.arrayBuffer();
     if($('#mode').value==='extract'&&/\.zip$/i.test(f.name))(await unzip(buf)).forEach(([n,d])=>files.push([dir?dir+'/'+n:n,d]));
     else{const n=clean(f.name);if(n)files.push([dir?dir+'/'+n:n,new Uint8Array(buf)])}
   }
