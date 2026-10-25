@@ -1,10 +1,11 @@
 <!doctype html>
-<html lang="en">
+<html lang="id">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Git-Upload - Put files on GitHub without the command line</title>
-<meta name="description" content="Upload files, extract zip archives, manage repositories and branches, and download code. Runs entirely in your browser.">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1d4ed8">
+<title>Git-Upload - Unggah file ke GitHub tanpa terminal</title>
+<meta name="description" content="Unggah file, ekstrak zip, kelola repositori dan branch, serta unduh kode langsung dari browser.">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;800&display=swap">
 <link rel="stylesheet" href="/assets/styles.css">
@@ -12,82 +13,73 @@
 </head>
 <body>
 <div id="prog" aria-hidden="true"><i></i></div>
+<p id="msg" role="status"></p>
 <header class="nav"><div class="wrap bar">
   <a class="brand" href="/"><span class="mark"></span>Git-Upload</a>
-  <nav><a href="#features">Features</a><a href="#security">Security</a><a class="btn sm" href="#workspace">Open workspace</a></nav>
+  <div id="who" hidden><img id="avatar" alt="" width="28" height="28"><span id="login"></span><button id="out" class="btn ghost sm">Keluar</button></div>
 </div></header>
 
-<main>
-<section class="hero wrap">
-  <h1>Move files into GitHub in seconds, not commands.</h1>
-  <p class="lead">Drop in a file or a zip, choose where it goes, and Git-Upload commits it for you. Create repositories and branches, browse your code, and download anything back out.</p>
-  <div class="row"><a class="btn" href="#workspace">Open workspace</a><a class="btn ghost" href="#features">See what it does</a></div>
-</section>
-
-<section id="features" class="wrap">
-  <h2>Everything a quick push needs</h2>
-  <div class="grid">
-    <article><h3>Upload as is</h3><p>Send any file to a repository, branch and folder of your choice. Existing files are updated in place.</p></article>
-    <article><h3>Extract zip archives</h3><p>Archives are unpacked in your browser and their contents land directly at the destination, with no wrapper folder, in a single commit.</p></article>
-    <article><h3>Repositories and branches</h3><p>Create a public or private repository, or branch off any existing branch, without leaving the page.</p></article>
-    <article><h3>Download the whole repository</h3><p>Fetch any branch as a complete zip file, including private repositories you can access.</p></article>
-    <article><h3>Download a single file</h3><p>Pull one file by path, or open the browser and download straight from the list.</p></article>
-    <article><h3>Browse and delete</h3><p>Move through folders, then remove a file or an entire folder in one commit.</p></article>
+<main class="wrap">
+<section id="intro">
+  <h1>Unggah file ke GitHub tanpa terminal.</h1>
+  <p class="lead">Seret file atau zip, pilih repositori dan branch, lalu Git-Upload yang melakukan commit. Semua berjalan di browser kamu.</p>
+  <div class="card conn">
+    <h2>Hubungkan akun GitHub</h2>
+    <p class="muted">Buat token di <a href="https://github.com/settings/tokens/new?scopes=repo&description=Git-Upload" target="_blank" rel="noopener">pengaturan GitHub</a> dengan izin <code>repo</code>, lalu tempel di bawah. Token hanya disimpan selama tab terbuka dan tidak dikirim ke server mana pun selain GitHub.</p>
+    <label>Token akses GitHub<input id="token" type="password" placeholder="ghp_..." autocomplete="off"></label>
+    <button id="connectBtn" class="btn block">Hubungkan</button>
   </div>
+  <ul class="feat">
+    <li><b>Unggah file</b>Ke repositori, branch, dan folder pilihanmu.</li>
+    <li><b>Ekstrak zip</b>Isi zip langsung masuk tanpa folder pembungkus.</li>
+    <li><b>Repositori dan branch</b>Buat baru, atau pilih dari daftar milikmu.</li>
+    <li><b>Unduh</b>Satu file atau seluruh repositori dalam zip.</li>
+  </ul>
 </section>
 
-<section id="security" class="wrap split">
-  <div><h2>Your token never leaves your browser</h2></div>
-  <div><p>Git-Upload has no server. Requests go straight from your browser to the GitHub API, and your access token is kept only for the current session. Close the tab and it is gone.</p><p>Use a classic personal access token with the <code>repo</code> scope, and revoke it whenever you like from your GitHub settings.</p></div>
-</section>
+<section id="app" hidden>
+  <div class="card pick">
+    <label>Repositori<input id="rq" placeholder="Cari repositori" autocomplete="off"><select id="repo"></select></label>
+    <label>Branch<select id="branch"></select></label>
+  </div>
+  <nav class="tabs" aria-label="Menu">
+    <button data-tab="up" class="on">Unggah</button><button data-tab="files">Berkas</button><button data-tab="new">Buat</button><button data-tab="dl">Unduh</button>
+  </nav>
 
-<section id="workspace" class="wrap">
-  <h2>Workspace</h2>
-  <div id="connect" class="card">
-    <h3>Connect to GitHub</h3>
-    <p class="muted">Create a token at <a href="https://github.com/settings/tokens/new?scopes=repo&description=Git-Upload" target="_blank" rel="noopener">github.com/settings/tokens</a> with the <code>repo</code> scope, then paste it here.</p>
-    <div class="row"><input id="token" type="password" placeholder="ghp_..." autocomplete="off" aria-label="GitHub token"><button id="connectBtn" class="btn">Connect</button></div>
+  <div data-p="up" class="card">
+    <h2>Unggah file</h2>
+    <label id="drop" class="drop" tabindex="0"><input id="files" type="file" multiple hidden><span id="dropText">Seret file ke sini atau ketuk untuk memilih</span></label>
+    <label>Mode<select id="mode"><option value="extract">Ekstrak isi zip ke tujuan</option><option value="raw">Unggah zip sebagai file</option></select></label>
+    <label>Folder tujuan<input id="dest" placeholder="Kosongkan untuk root repositori" autocapitalize="none"></label>
+    <p id="target" class="muted"></p>
+    <button id="go" class="btn block">Unggah ke GitHub</button>
   </div>
 
-  <div id="app" hidden>
-    <div class="card top">
-      <div class="who"><img id="avatar" alt="" width="32" height="32"><strong id="login"></strong></div>
-      <label>Repository<input id="repo" list="repos" placeholder="owner/repository" autocomplete="off"></label><datalist id="repos"></datalist>
-      <label>Branch<select id="branch"></select></label>
-      <button id="out" class="btn ghost sm">Disconnect</button>
-    </div>
-    <p id="msg" role="status"></p>
+  <div data-p="files" class="card" hidden>
+    <div class="head"><h2>Berkas</h2><div class="row"><code id="crumb">/</code><button id="refresh" class="btn ghost sm">Muat ulang</button></div></div>
+    <ul id="rows"></ul>
+  </div>
 
-    <div class="cols">
-      <div class="card">
-        <h3>Upload</h3>
-        <label id="drop" class="drop" tabindex="0"><input id="files" type="file" multiple hidden><span id="dropText">Drop files here or click to choose</span></label>
-        <div class="two">
-          <label>Mode<select id="mode"><option value="extract">Extract zip contents to destination</option><option value="raw">Upload zip as a file</option></select></label>
-          <label>Destination folder<input id="dest" placeholder="Repository root"></label>
-        </div>
-        <button id="go" class="btn">Upload to GitHub</button>
-      </div>
+  <div data-p="new" class="card" hidden>
+    <h2>Repositori baru</h2>
+    <label>Nama repositori<input id="nrName" placeholder="proyek-saya" autocapitalize="none"></label>
+    <label>Visibilitas<select id="nrVis"><option value="1">Privat</option><option value="0">Publik</option></select></label>
+    <button id="nrBtn" class="btn block">Buat repositori</button>
+    <h2 class="sp">Branch baru</h2>
+    <label>Nama branch (dari branch aktif)<input id="nbName" placeholder="fitur/nama" autocapitalize="none"></label>
+    <button id="nbBtn" class="btn block">Buat branch</button>
+  </div>
 
-      <div class="card">
-        <h3>Create</h3>
-        <div class="two">
-          <label>New repository<input id="nrName" placeholder="my-project"></label>
-          <label>Visibility<select id="nrVis"><option value="1">Private</option><option value="0">Public</option></select></label>
-        </div>
-        <button id="nrBtn" class="btn ghost">Create repository</button>
-        <label>New branch (from current)<input id="nbName" placeholder="feature/name"></label>
-        <button id="nbBtn" class="btn ghost">Create branch</button>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="head"><h3>Files</h3><div class="row"><code id="crumb">/</code><button id="zipBtn" class="btn ghost sm">Download repository zip</button></div></div>
-      <table><tbody id="rows"></tbody></table>
-    </div>
+  <div data-p="dl" class="card" hidden>
+    <h2>Unduh repositori</h2>
+    <p class="muted">Seluruh isi branch aktif dalam satu file zip.</p>
+    <button id="zipBtn" class="btn block">Unduh zip repositori</button>
+    <h2 class="sp">Unduh satu file</h2>
+    <label>Path file<input id="fpath" placeholder="src/index.js" autocapitalize="none"></label>
+    <button id="fBtn" class="btn block ghost">Unduh file</button>
   </div>
 </section>
 </main>
-<footer class="wrap foot">Git-Upload. Runs in your browser. Not affiliated with GitHub.</footer>
+<footer class="wrap foot">Git-Upload berjalan sepenuhnya di browser. Tidak berafiliasi dengan GitHub.</footer>
 </body>
 </html>
