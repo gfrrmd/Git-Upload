@@ -108,7 +108,7 @@ function openPick(sel,title){
   $('.shd').onclick=close;document.body.style.overflow='hidden';sh.hidden=false;void sh.offsetWidth;sh.classList.add('open');
   setTimeout(()=>ul.querySelector('.sel')?.scrollIntoView({block:'center'}),60);
 }
-document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('#sheet').classList.contains('open'))$('.shd').click();if($('#tsheet').classList.contains('open'))tClose()});
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('#sheet').classList.contains('open'))$('.shd').click();if($('#tsheet').classList.contains('open'))tClose();if($('#lsheet').classList.contains('open'))lClose()});
 const tgt=()=>syncPick();
 async function list(p=''){
   need();S.path=p;
@@ -157,7 +157,7 @@ async function connect(){
   sessionStorage.setItem('gt',S.t);$('#token').value='';
   $('#login').textContent=me.login;$('#avatar').src=me.avatar_url;
   S.all=[];for(let p=1;p<=5;p++){const r=await J(`/user/repos?per_page=100&sort=updated&page=${p}`);S.all.push(...r);if(r.length<100)break}
-  $('#intro').hidden=true;$('#app').hidden=false;$('#who').hidden=false;
+  lClose();$('#loginBtn').hidden=true;$('#intro').hidden=true;$('#app').hidden=false;$('#who').hidden=false;
   const saved=sessionStorage.getItem('gr')||'';S.repo=S.all.some(r=>r.full_name===saved)?saved:'';
   fillRepos('');if(S.repo)await pickRepo(S.repo);else{tgt();say('Terhubung. Pilih repositori untuk mulai.')}
 }
@@ -229,5 +229,16 @@ $('#tc').oninput=e=>{G.set({hex:e.target.value});syncTheme()};
 $('#themeBtn').onclick=()=>{syncTheme();document.body.style.overflow='hidden';ts.hidden=false;void ts.offsetWidth;ts.classList.add('open')};
 ts.querySelector('.shd').onclick=tClose;$('#tdone').onclick=tClose;
 document.querySelectorAll('.fq>button').forEach(b=>b.onclick=()=>{const o=b.parentElement.classList.toggle('open');b.setAttribute('aria-expanded',o)});
-$('#tokv').onclick=()=>{const t=$('#token'),s=t.type==='password';t.type=s?'text':'password';$('#tokv').textContent=s?'Sembunyikan':'Tampilkan'};
+const ls=$('#lsheet');
+function lClose(){ls.classList.remove('open');document.body.style.overflow='';setTimeout(()=>ls.hidden=true,300)}
+const lOpen=()=>{document.body.style.overflow='hidden';ls.hidden=false;void ls.offsetWidth;ls.classList.add('open');setTimeout(()=>$('#token').focus(),350)};
+$('#loginBtn').onclick=lOpen;$('#heroLogin').onclick=lOpen;ls.querySelector('.shd').onclick=lClose;
+addEventListener('scroll',()=>$('.nav').classList.toggle('sc',scrollY>8),{passive:true});
+if('IntersectionObserver' in window&&!matchMedia('(prefers-reduced-motion:reduce)').matches){
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(!e.isIntersecting)return;const t=e.target;io.unobserve(t);t.classList.add('in');setTimeout(()=>t.classList.remove('rv','in'),1000)}),{threshold:.12,rootMargin:'0px 0px -6% 0px'});
+  document.querySelectorAll('#intro .sec>h2,#intro .fc,#intro .shc,#intro .fq').forEach(el=>{
+    const i=[...el.parentElement.children].indexOf(el);
+    el.style.setProperty('--d',(el.matches('.fc')?i%3*.09:el.matches('.fq')?i*.05:0)+'s');
+    el.classList.add('rv');io.observe(el)});
+}
 if(S.t)connect().catch(()=>{});
