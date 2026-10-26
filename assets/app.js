@@ -20,7 +20,7 @@ const act=(f,b,label)=>async(...a)=>{
   const w=setTimeout(()=>{if(D.dataset.s!=='busy'||!D.classList.contains('show'))step(label||'Memproses')},200);
   try{await f(...a)}catch(e){say(e.message,1)}
   finally{clearTimeout(w);el&&el.classList.remove('busy');if(D.dataset.s==='busy')hide()}};
-document.addEventListener('pointerdown',e=>{const b=e.target.closest('.btn,.tabs button,.tx,.lk');if(!b)return;
+document.addEventListener('pointerdown',e=>{const b=e.target.closest('.btn,.tabs button,.tx,.lk,.ib');if(!b)return;
   const r=b.getBoundingClientRect(),s=document.createElement('span'),d=Math.max(r.width,r.height)*2;
   s.className='rip';s.style.cssText=`width:${d}px;height:${d}px;left:${e.clientX-r.left-d/2}px;top:${e.clientY-r.top-d/2}px`;
   b.append(s);setTimeout(()=>s.remove(),600)});
@@ -108,8 +108,8 @@ function openPick(sel,title){
   $('.shd').onclick=close;document.body.style.overflow='hidden';sh.hidden=false;void sh.offsetWidth;sh.classList.add('open');
   setTimeout(()=>ul.querySelector('.sel')?.scrollIntoView({block:'center'}),60);
 }
-document.addEventListener('keydown',e=>e.key==='Escape'&&$('#sheet').classList.contains('open')&&$('.shd').click());
-const tgt=()=>{syncPick();$('#target').textContent=S.repo?`Tujuan: ${S.repo}, branch ${S.br}, folder /${$('#dest').value.trim().replace(/^\/+/,'')}`:'Pilih repositori terlebih dahulu.'};
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if($('#sheet').classList.contains('open'))$('.shd').click();if($('#tsheet').classList.contains('open'))tClose()});
+const tgt=()=>syncPick();
 async function list(p=''){
   need();S.path=p;
   const d=await J(`/repos/${S.repo}/contents${p?'/'+enc(p):''}?ref=${encodeURIComponent(S.br)}`);
@@ -217,4 +217,17 @@ $('#nbBtn').onclick=act(async()=>{
   await send(`/repos/${S.repo}/git/refs`,{ref:'refs/heads/'+name,sha:await head()});
   $('#nbName').value='';await loadBranches(name);await list('');tgt();say(`Branch ${name} dibuat dan dipilih.`);
 },'#nbBtn');
+const G=window.gutheme,ts=$('#tsheet');
+const syncTheme=()=>{document.querySelectorAll('[name=tm]').forEach(r=>r.checked=r.value===G.T.mode);
+  document.querySelectorAll('#sw button').forEach(b=>b.classList.toggle('on',!G.T.hex&&b.dataset.n===G.T.acc));
+  $('#tc').value=G.T.hex||(G.PAL.find(x=>x[0]===G.T.acc)||G.PAL[0])[1]};
+function tClose(){ts.classList.remove('open');document.body.style.overflow='';setTimeout(()=>ts.hidden=true,300)}
+G.PAL.forEach(p=>{const b=document.createElement('button');b.type='button';b.dataset.n=p[0];b.style.setProperty('--c',p[1]);
+  b.setAttribute('aria-label',p[0]);b.title=p[0];b.onclick=()=>{G.set({acc:p[0],hex:''});syncTheme()};$('#sw').append(b)});
+document.querySelectorAll('[name=tm]').forEach(r=>r.onchange=()=>G.set({mode:r.value}));
+$('#tc').oninput=e=>{G.set({hex:e.target.value});syncTheme()};
+$('#themeBtn').onclick=()=>{syncTheme();document.body.style.overflow='hidden';ts.hidden=false;void ts.offsetWidth;ts.classList.add('open')};
+ts.querySelector('.shd').onclick=tClose;$('#tdone').onclick=tClose;
+document.querySelectorAll('.fq>button').forEach(b=>b.onclick=()=>{const o=b.parentElement.classList.toggle('open');b.setAttribute('aria-expanded',o)});
+$('#tokv').onclick=()=>{const t=$('#token'),s=t.type==='password';t.type=s?'text':'password';$('#tokv').textContent=s?'Sembunyikan':'Tampilkan'};
 if(S.t)connect().catch(()=>{});
